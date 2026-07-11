@@ -206,8 +206,12 @@ export default function Home() {
             </button>
           </div>
         )}
-
       </div>
+	  {/* LEGAL FOOTER */}
+        <div className="mt-12 text-center text-xs text-gray-400 pb-6">
+          <p>© {new Date().getFullYear()} Indirapuram Property Valuator. All rights reserved.</p>
+          <p className="mt-1">Disclaimer: This tool provides algorithmic estimates based on available market data and government circle rates. It does not constitute a legal valuation or financial advice. Actual transaction prices may vary.</p>
+        </div>
     </main>
   );
 }
