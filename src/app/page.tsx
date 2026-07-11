@@ -8,10 +8,9 @@ const CIRCLE_RATES: Record<string, number> = {
   'gaur gc-1': 55000, 'shipra sun city': 50000, 'garden gateway': 48000,
 };
 
-// Define a type for our transparency breakdown
 interface Adjustment {
   label: string;
-  value: string; // e.g., "+2.5%" or "-5%"
+  value: string;
   isPositive: boolean;
 }
 
@@ -24,11 +23,11 @@ export default function Home() {
     yearBuilt: '2020', hasVastu: false, parkingType: 'one', condition: 'good'
   });
   
-  // Added adjustments array to state
   const [result, setResult] = useState<{
     min: number, max: number, rate: number, source: string, unit: string, 
     circleRateValue: number | null, premium: number | null, carpetSize: number | null,
-    adjustments: Adjustment[] // NEW
+    adjustments: Adjustment[],
+    renoValueIncrease: number | null, renoCost: number | null, renoROI: number | null
   } | null>(null);
   
   const [isCalculating, setIsCalculating] = useState(false);
@@ -79,7 +78,12 @@ export default function Home() {
 
       let adjustedRate = baseRate;
       let percentageAdjustment = 0; 
-      const adjustmentsLog: Adjustment[] = []; // Capture the logic here
+      const adjustmentsLog: Adjustment[] = []; 
+
+      // Declare Renovation variables cleanly at the top
+      let renoValueIncrease = null;
+      let renoCost = null;
+      let renoROI = null;
 
       if (isPlot) {
         const roadW = parseInt(formData.roadWidth) || 30;
@@ -112,8 +116,21 @@ export default function Home() {
         if (formData.parkingType === 'two') { percentageAdjustment += 2; adjustmentsLog.push({ label: "Double Covered Parking", value: "+2%", isPositive: true }); } 
         else if (formData.parkingType === 'none') { percentageAdjustment -= 2; adjustmentsLog.push({ label: "No Parking", value: "-2%", isPositive: false }); }
         
-        if (formData.condition === 'excellent') { percentageAdjustment += 3; adjustmentsLog.push({ label: "Excellent Condition", value: "+3%", isPositive: true }); } 
-        else if (formData.condition === 'needs_renovation') { percentageAdjustment -= 5; adjustmentsLog.push({ label: "Needs Renovation", value: "-5%", isPositive: false }); }
+        if (formData.condition === 'excellent') { 
+          percentageAdjustment += 3; 
+          adjustmentsLog.push({ label: "Excellent Condition", value: "+3%", isPositive: true }); 
+        } else if (formData.condition === 'needs_renovation') { 
+          percentageAdjustment -= 5; 
+          adjustmentsLog.push({ label: "Needs Renovation", value: "-5%", isPositive: false }); 
+          
+          const hypotheticalExcellentRate = baseRate * (1 + ((percentageAdjustment + 8) / 100));
+          const currentEstimate = baseRate * (1 + (percentageAdjustment / 100)) * superSize;
+          const excellentEstimate = hypotheticalExcellentRate * superSize;
+          
+          renoCost = 350000; // Set cost here cleanly
+          renoValueIncrease = Math.round(excellentEstimate - currentEstimate);
+          renoROI = Math.round(((renoValueIncrease - renoCost) / renoCost) * 100);
+        }
       }
 
       adjustedRate = adjustedRate * (1 + (percentageAdjustment / 100));
@@ -134,10 +151,12 @@ export default function Home() {
         await supabase.from('valuations').insert([{ lead_id: lead.id, property_type: formData.propertyType, society_name: formData.society, size_sqft: isPlot ? inputSize : superSize, floor: isPlot ? null : parseInt(formData.floor), facing: formData.facing, estimated_min_price: minPrice, estimated_max_price: maxPrice }]);
       }
 
+      // Pass the clean variables directly into setResult
       setResult({ 
         min: minPrice, max: maxPrice, rate: Math.round(adjustedRate), source: rateSource, 
         unit: isPlot ? 'Sq. Yard' : 'Sq. Ft. (Super)', circleRateValue, premium, carpetSize: isPlot ? null : carpetSize,
-        adjustments: adjustmentsLog // Pass the log to the UI
+        adjustments: adjustmentsLog,
+        renoValueIncrease, renoCost, renoROI
       });
 
     } catch (error) { console.error("Error:", error); } finally { setIsCalculating(false); }
@@ -160,8 +179,8 @@ export default function Home() {
   const formatCurrency = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
 
   return (
-    <main className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-3xl mx-auto">
+    <main className="min-h-screen bg-gray-50 py-10 px-4 flex flex-col">
+      <div className="max-w-3xl mx-auto w-full flex-grow">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Indirapuram Property Valuator</h1>
           <p className="mt-2 text-gray-600">Advanced Algorithmic Pricing: Area, Age, Vastu & Circle Rates.</p>
@@ -240,7 +259,6 @@ export default function Home() {
 
             {result && (
               <div className="mt-6 space-y-4">
-                {/* MAIN RESULT CARD */}
                 <div className="p-6 bg-indigo-50 rounded-lg border border-indigo-100">
                   <h3 className="text-lg font-bold text-gray-900 mb-3">Advanced Property Estimate</h3>
                   <div className="flex justify-between items-end">
@@ -258,7 +276,6 @@ export default function Home() {
                   <button type="button" onClick={() => alert("Your details have been shared with top local brokers!")} className="mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-800 transition text-sm">Connect with 3 Verified Brokers</button>
                 </div>
 
-                {/* NEW: TRANSPARENCY BREAKDOWN CARD */}
                 {result.adjustments.length > 0 && (
                   <div className="p-6 bg-white rounded-lg border border-gray-200">
                     <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -273,11 +290,35 @@ export default function Home() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-400 mt-3 italic">*Adjustments are applied cumulatively to the society base rate to derive the final effective rate.</p>
+                    <p className="text-xs text-gray-400 mt-3 italic">*Adjustments are applied cumulatively to the society base rate.</p>
                   </div>
                 )}
 
-                {/* CIRCLE RATE CARD */}
+                {result.renoValueIncrease !== null && result.renoCost !== null && (
+                  <div className="p-6 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <h4 className="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                      Renovation Upside Potential
+                    </h4>
+                    <p className="text-sm text-emerald-700 mb-4">By investing in standard upgrades, you can shift this property to "Excellent" condition.</p>
+                    <div className="grid grid-cols-3 gap-4 text-center mb-4">
+                      <div className="bg-white p-3 rounded border border-emerald-100">
+                        <p className="text-xs text-gray-500">Est. Reno Cost</p>
+                        <p className="text-lg font-bold text-gray-900">{formatCurrency(result.renoCost)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-emerald-100">
+                        <p className="text-xs text-gray-500">Value Increase</p>
+                        <p className="text-lg font-bold text-green-600">+{formatCurrency(result.renoValueIncrease)}</p>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-emerald-100">
+                        <p className="text-xs text-gray-500">Net ROI</p>
+                        <p className="text-lg font-bold text-emerald-700">{result.renoROI}%</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-emerald-600 text-center font-medium">*Highly recommended to maximize your sale price before listing.</p>
+                  </div>
+                )}
+
                 {result.circleRateValue !== null && (
                   <div className="p-6 bg-amber-50 rounded-lg border border-amber-200">
                     <h4 className="font-bold text-amber-800 mb-3">Circle Rate vs. Market Rate Analytics</h4>
@@ -318,7 +359,7 @@ export default function Home() {
         )}
       </div>
       
-      {/* BUYER LEAD POPUP */}
+      {/* BUYER LEAD POPUP - PROPERLY FORMATTED */}
       {showBuyerPopup && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
@@ -335,29 +376,19 @@ export default function Home() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
               />
               <div className="flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setShowBuyerPopup(false)} 
-                  className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"
-                >
-                  Connect Me
-                </button>
+                <button type="button" onClick={() => setShowBuyerPopup(false)} className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">Connect Me</button>
               </div>
             </form>
           </div>
         </div>
       )}
-	  	  {/* LEGAL FOOTER */}
-        <div className="mt-12 text-center text-xs text-gray-400 pb-6">
-          <p>© {new Date().getFullYear()} Indirapuram Property Valuator. All rights reserved.</p>
-          <p className="mt-1">Disclaimer: This tool provides algorithmic estimates based on available market data and government circle rates. It does not constitute a legal valuation or financial advice. Actual transaction prices may vary.</p>
-        </div>
+
+      {/* RESTORED: LEGAL FOOTER */}
+      <div className="mt-12 text-center text-xs text-gray-400 pb-6">
+        <p>© {new Date().getFullYear()} Indirapuram Property Valuator. All rights reserved.</p>
+        <p className="mt-1">Disclaimer: This tool provides algorithmic estimates based on available market data and government circle rates. It does not constitute a legal valuation or financial advice. Actual transaction prices may vary.</p>
+      </div>
     </main>
   );
 }
