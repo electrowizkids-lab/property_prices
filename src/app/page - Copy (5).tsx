@@ -19,20 +19,20 @@ export default function Home() {
   // --- SELLER STATE ---
   const [formData, setFormData] = useState({
     phone: '', 
-    propertyType: 'flat', 
+    propertyType: 'flat', // NEW: flat or plot
     society: '', 
     size: '', 
     floor: '', 
     facing: 'East',
-    roadWidth: '30', 
-    isCorner: false  
+    roadWidth: '30', // NEW: for plots
+    isCorner: false  // NEW: for plots
   });
   
   const [result, setResult] = useState<{
     min: number, max: number, rate: number, source: string, 
-    unit: string, 
-    circleRateValue: number | null, 
-    premium: number | null 
+    unit: string, // NEW: Sq.ft or Sq.yd
+    circleRateValue: number | null, // NEW
+    premium: number | null // NEW
   } | null>(null);
   
   const [isCalculating, setIsCalculating] = useState(false);
@@ -41,8 +41,6 @@ export default function Home() {
   const [societies, setSocieties] = useState<string[]>([]);
   const [selectedSociety, setSelectedSociety] = useState<string>('');
   const [trendResult, setTrendResult] = useState<{baseRate: number, twoBHK: number, threeBHK: number, fourBHK: number} | null>(null);
-  const [showBuyerPopup, setShowBuyerPopup] = useState(false);
-  const [buyerPhone, setBuyerPhone] = useState('');
 
   useEffect(() => {
     const fetchSocieties = async () => {
@@ -70,7 +68,7 @@ export default function Home() {
       const sizeNum = parseFloat(formData.size) || 0;
       
       // 1. Fetch Base Rate
-      let baseRate = isPlot ? 70000 : 8500; 
+      let baseRate = isPlot ? 70000 : 8500; // Fallbacks
       let rateSource = isPlot ? "Indirapuram Plot Average" : "Indirapuram Flat Average";
 
       if (formData.society.trim() !== "") {
@@ -91,17 +89,20 @@ export default function Home() {
       let adjustedRate = baseRate;
 
       if (isPlot) {
+        // Plot Adjustments
         const roadW = parseInt(formData.roadWidth) || 30;
-        if (roadW >= 60) adjustedRate += 15000; 
+        if (roadW >= 60) adjustedRate += 15000; // Wide road premium
         else if (roadW >= 40) adjustedRate += 8000;
         
-        if (formData.isCorner) adjustedRate += 10000; 
+        if (formData.isCorner) adjustedRate += 10000; // Corner plot premium
         
+        // Facing for plots
         if (formData.facing === 'East') adjustedRate += 5000;
         else if (formData.facing === 'North') adjustedRate += 3000;
         else if (formData.facing === 'West') adjustedRate -= 2000;
 
       } else {
+        // Flat Adjustments
         const floorNum = parseInt(formData.floor) || 1;
         if (floorNum === 1) adjustedRate += 50;
         else if (floorNum >= 3 && floorNum <= 7) adjustedRate += 30;
@@ -118,24 +119,14 @@ export default function Home() {
       const minPrice = Math.round(totalEstimate * 0.97);
       const maxPrice = Math.round(totalEstimate * 1.03);
 
-      // 4. Circle Rate Calculation (FIXED FOR FLATS)
+      // 4. Circle Rate Calculation
       let circleRateValue = null;
       let premium = null;
       const societyKey = formData.society.trim().toLowerCase();
       
       if (CIRCLE_RATES[societyKey]) {
-        const circlePerSqYard = CIRCLE_RATES[societyKey];
-        
-        if (isPlot) {
-          // For plots, size is already in Sq. Yards
-          circleRateValue = Math.round(circlePerSqYard * sizeNum);
-        } else {
-          // For flats, size is in Sq. Ft. Circle rate is in Sq. Yards. 
-          // We must convert Circle Rate to Sq. Ft. by dividing by 9.
-          const circlePerSqFt = circlePerSqYard / 9;
-          circleRateValue = Math.round(circlePerSqFt * sizeNum);
-        }
-
+        const circlePerUnit = CIRCLE_RATES[societyKey];
+        circleRateValue = Math.round(circlePerUnit * sizeNum);
         premium = Math.round(((totalEstimate - circleRateValue) / totalEstimate) * 100);
       }
 
@@ -168,22 +159,6 @@ export default function Home() {
       const rate = rateData.base_rate_per_sqft;
       setTrendResult({ baseRate: rate, twoBHK: Math.round(rate * 1100), threeBHK: Math.round(rate * 1600), fourBHK: Math.round(rate * 2200) });
     }
-  };
-
-  // --- BUYER LEAD CAPTURE LOGIC ---
-  const handleBuyerLeadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!buyerPhone || buyerPhone.length !== 10) return alert("Enter valid 10-digit number");
-
-    await supabase.from('leads').insert([{ 
-      phone_number: buyerPhone, 
-      user_type: 'buyer',
-      society_name: selectedSociety 
-    }]);
-
-    alert("Success! Top local brokers will contact you shortly with listings.");
-    setShowBuyerPopup(false);
-    setBuyerPhone('');
   };
 
   const formatCurrency = (num: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
@@ -228,6 +203,7 @@ export default function Home() {
                   <input type="number" name="size" value={formData.size} onChange={handleChange} required placeholder={formData.propertyType === 'plot' ? "e.g., 100" : "e.g., 1500"} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition"/>
                 </div>
 
+                {/* CONDITIONAL FIELDS FOR FLATS */}
                 {formData.propertyType === 'flat' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
@@ -235,6 +211,7 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* CONDITIONAL FIELDS FOR PLOTS */}
                 {formData.propertyType === 'plot' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Road Width (Feet)</label>
@@ -258,6 +235,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* CORNER PLOT CHECKBOX */}
               {formData.propertyType === 'plot' && (
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id="isCorner" name="isCorner" checked={formData.isCorner} onChange={handleChange} className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"/>
@@ -286,12 +264,7 @@ export default function Home() {
                       <p className="text-2xl font-extrabold text-gray-900">{formatCurrency(result.min)} - {formatCurrency(result.max)}</p>
                     </div>
                   </div>
-                  {/* BUG FIX 1: Added onClick to the button */}
-                  <button 
-                    type="button"
-                    onClick={() => alert("Your details have been shared with top local brokers! They will contact you shortly.")}
-                    className="mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-800 transition text-sm"
-                  >
+                  <button className="mt-4 w-full bg-indigo-600 text-white font-semibold py-2.5 rounded-lg hover:bg-indigo-800 transition text-sm">
                     Connect with 3 Verified Brokers
                   </button>
                 </div>
@@ -330,7 +303,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* BUYER MODE */}
+        {/* BUYER MODE (Unchanged from before) */}
         {mode === 'buyer' && (
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Explore Locality Rates</h2>
@@ -352,38 +325,12 @@ export default function Home() {
                   <div className="p-4 bg-green-50 rounded-lg border text-center"><p className="text-xs font-medium text-green-800">3 BHK</p><p className="text-lg font-bold text-gray-900">{formatCurrency(trendResult.threeBHK)}</p></div>
                   <div className="p-4 bg-purple-50 rounded-lg border text-center"><p className="text-xs font-medium text-purple-800">4 BHK</p><p className="text-lg font-bold text-gray-900">{formatCurrency(trendResult.fourBHK)}</p></div>
                 </div>
-                    <button onClick={() => setShowBuyerPopup(true)} className="w-full border-2 border-indigo-600 text-indigo-600 font-semibold py-3 rounded-lg hover:bg-indigo-50 transition">Connect me with a Broker</button>
+                <button className="w-full border-2 border-indigo-600 text-indigo-600 font-semibold py-3 rounded-lg hover:bg-indigo-50 transition">Connect me with a Broker</button>
               </div>
             )}
           </div>
         )}
       </div>
-      
-      {/* BUYER LEAD POPUP */}
-      {showBuyerPopup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Get Exclusive Inventory</h3>
-            <p className="text-sm text-gray-500 mb-4">Brokers don't post their best deals online. Submit your number to get direct access to unlisted properties in {selectedSociety}.</p>
-            
-            <form onSubmit={handleBuyerLeadSubmit} className="space-y-4">
-              <input 
-                type="tel" 
-                value={buyerPhone}
-                onChange={(e) => setBuyerPhone(e.target.value)}
-                placeholder="Enter 10-digit Mobile Number"
-                maxLength={10}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setShowBuyerPopup(false)} className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition">Cancel</button>
-                <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition">Connect Me</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
