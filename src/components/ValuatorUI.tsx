@@ -58,8 +58,8 @@ export default function ValuatorUI({ mode, setMode, formData, setFormData, handl
             {mode === 'seller' && (
               <div>
                 <div className="flex border border-gray-300 rounded-xl overflow-hidden mb-8 max-w-md mx-auto">
-                  <button type="button" onClick={() => setFormData(prev => ({...prev, propertyType: 'flat'}))} className={`w-1/2 py-3.5 text-sm font-semibold transition ${formData.propertyType === 'flat' ? 'bg-indigo-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Flat / Apartment</button>
-                  <button type="button" onClick={() => setFormData(prev => ({...prev, propertyType: 'plot'}))} className={`w-1/2 py-3.5 text-sm font-semibold transition border-l border-gray-300 ${formData.propertyType === 'plot' ? 'bg-indigo-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Plot / Land</button>
+                  <button type="button" onClick={() => setFormData({...formData, propertyType: 'flat'})} className={`w-1/2 py-3.5 text-sm font-semibold transition ${formData.propertyType === 'flat' ? 'bg-indigo-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Flat / Apartment</button>
+				  <button type="button" onClick={() => setFormData({...formData, propertyType: 'plot'})} className={`w-1/2 py-3.5 text-sm font-semibold transition border-l border-gray-300 ${formData.propertyType === 'plot' ? 'bg-indigo-600 text-white shadow-inner' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Plot / Land</button>
                 </div>
 
                 <form onSubmit={handleSellerEstimate} className="space-y-6">
