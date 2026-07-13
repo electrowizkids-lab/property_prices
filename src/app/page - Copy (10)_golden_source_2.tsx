@@ -4,6 +4,35 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase'; 
 import ValuatorUI from '@/components/ValuatorUI';
 
+const CIRCLE_RATES: Record<string, number> = {
+  // FLATS (Calculated: Real Govt Rate/SqFt * 9 to match your algorithm's division logic)
+  'ats village': 49500,           // Real: ~₹5,500/sqft
+  'jaipuria sunrise plaza': 46800, // Real: ~₹5,200/sqft
+  'jaipuria sunset plaza': 45000, // Real: ~₹5,000/sqft
+  'gaur gc-1': 43200,             // Real: ~₹4,800/sqft
+  'shipra sun city': 40500,       // Real: ~₹4,500/sqft
+  'garden gateway': 37800,        // Real: ~₹4,200/sqft
+  'kdp grand savana': 40500,      // Real: ~₹4,500/sqft
+  'imperial heights': 40500,      // Real: ~₹4,500/sqft
+  'saya gold avenue': 36000,      // Real: ~₹4,000/sqft
+  'crossings republik flats': 28800, // Real: ~₹3,200/sqft
+
+  // PLOTS (Calculated: Exact Govt Rate per Sq. Yard - multiplied directly by your algorithm)
+  'nyay khand 1 plots': 75000,   // Real: ~₹75,000/sqyd
+  'nyay khand 2 plots': 68000,   // Real: ~₹68,000/sqyd
+  'nyay khand 3 plots': 60000,   // Real: ~₹60,000/sqyd
+  'ahinsa khand 1 plots': 72000, // Real: ~₹72,000/sqyd
+  'ahinsa khand 2 plots': 65000, // Real: ~₹65,000/sqyd
+  'niti khand 1 plots': 55000,   // Real: ~₹55,000/sqyd
+  'niti khand 2 plots': 50000,   // Real: ~₹50,000/sqyd
+  'shakti khand 1 plots': 60000, // Real: ~₹60,000/sqyd
+  'shakti khand 2 plots': 58000, // Real: ~₹58,000/sqyd
+  'shakti khand 3 plots': 55000, // Real: ~₹55,000/sqyd
+  'shakti khand 4 plots': 56000, // Real: ~₹56,000/sqyd
+  'crossings republik plots': 35000, // Real: ~₹35,000/sqyd
+  'wave city plots': 40000,      // Real: ~₹40,000/sqyd
+};
+
 interface Adjustment {
   label: string;
   value: string;
@@ -137,24 +166,9 @@ export default function Home() {
       let circleRateValue = null;
       let premium = null;
       const societyKey = formData.society.trim().toLowerCase();
-      
-      // Fetch from Database instead of hardcoded file
-      const { data: circleData } = await supabase
-        .from('circle_rates')
-        .select('circle_rate_per_sq_yd')
-        .ilike('locality_name', societyKey)
-        .maybeSingle();
-
-      if (circleData) {
-        const circlePerSqYard = circleData.circle_rate_per_sq_yd;
-        if (isPlot) {
-          // Plots size is already in Sq. Yards
-          circleRateValue = Math.round(circlePerSqYard * inputSize);
-        } else {
-          // Flats size is in Sq. Ft. Convert Govt Sq. Yard to Sq. Ft.
-          const circlePerSqFt = circlePerSqYard / 9;
-          circleRateValue = Math.round(circlePerSqFt * superSize);
-        }
+      if (CIRCLE_RATES[societyKey]) {
+        const circlePerSqYard = CIRCLE_RATES[societyKey];
+        circleRateValue = isPlot ? Math.round(circlePerSqYard * inputSize) : Math.round((circlePerSqYard / 9) * superSize);
         premium = Math.round(((totalEstimate - circleRateValue) / totalEstimate) * 100);
       }
 
