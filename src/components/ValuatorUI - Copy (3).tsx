@@ -66,17 +66,17 @@ export default function ValuatorUI({ mode, setMode, formData, setFormData, handl
                   <div><label className="block text-sm font-semibold text-gray-700 mb-2">Mobile Number <span className="text-red-500">*</span></label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Enter 10-digit number" className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition text-gray-900"/></div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-<select 
-    name="society" 
-    value={formData.society} 
-    onChange={handleChange} 
-    className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900 font-medium"
->
-    <option value="">-- Select Locality --</option>
-    {Array.from(new Set(societies)).map((soc, index) => (
-        <option key={`${soc}-${index}`} value={soc}>{soc}</option>
-    ))}
-</select>
+					<select 
+						name="society" 
+						value={formData.society} 
+						onChange={handleChange} 
+						className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900 font-medium"
+					>
+					<option value="">-- Select Locality --</option>
+						{societies.map((soc) => (
+						<option key={soc} value={soc}>{soc}</option>
+					))}
+					</select>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Size ({formData.propertyType === 'plot' ? 'Sq. Yards' : 'Sq. Ft.'}) <span className="text-red-500">*</span></label>
                       <div className="flex">

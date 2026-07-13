@@ -36,9 +36,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchSocieties = async () => {
-      // Removed .single() so it fetches ALL rows (Flats AND Plots)
-      // Removed .eq('property_type', 'flat') so the dropdown populates for both toggles
-      const { data } = await supabase.from('base_rates').select('locality_name');
+      const { data } = await supabase.from('base_rates').select('locality_name').eq('property_type', 'flat');
       if (data) setSocieties(data.map(item => item.locality_name).sort());
     };
     fetchSocieties();

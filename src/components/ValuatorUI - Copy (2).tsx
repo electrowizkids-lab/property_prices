@@ -66,17 +66,7 @@ export default function ValuatorUI({ mode, setMode, formData, setFormData, handl
                   <div><label className="block text-sm font-semibold text-gray-700 mb-2">Mobile Number <span className="text-red-500">*</span></label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} required placeholder="Enter 10-digit number" className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition text-gray-900"/></div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-<select 
-    name="society" 
-    value={formData.society} 
-    onChange={handleChange} 
-    className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900 font-medium"
->
-    <option value="">-- Select Locality --</option>
-    {Array.from(new Set(societies)).map((soc, index) => (
-        <option key={`${soc}-${index}`} value={soc}>{soc}</option>
-    ))}
-</select>
+                    <div><label className="block text-sm font-semibold text-gray-700 mb-2">Society / Locality</label><input type="text" name="society" value={formData.society} onChange={handleChange} placeholder="e.g., ATS Village" className="w-full px-4 py-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition text-gray-900"/></div>
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Size ({formData.propertyType === 'plot' ? 'Sq. Yards' : 'Sq. Ft.'}) <span className="text-red-500">*</span></label>
                       <div className="flex">
@@ -120,7 +110,7 @@ export default function ValuatorUI({ mode, setMode, formData, setFormData, handl
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Explore Locality Rates</h2>
                 <div className="flex flex-col sm:flex-row gap-4 max-w-2xl mx-auto">
-                  <select value={selectedSociety} onChange={(e) => setSelectedSociety(e.target.value)} className="flex-1 px-4 py-3.5 border border-gray-300 rounded-xl outline-none bg-white text-gray-900 font-medium"><option value="">-- Select a Society --</option>{societies.map((soc, index) => (<option key={`${soc}-${index}`} value={soc}>{soc}</option>))}</select>
+                  <select value={selectedSociety} onChange={(e) => setSelectedSociety(e.target.value)} className="flex-1 px-4 py-3.5 border border-gray-300 rounded-xl outline-none bg-white text-gray-900 font-medium"><option value="">-- Select a Society --</option>{societies.map((soc) => (<option key={soc} value={soc}>{soc}</option>))}</select>
                   <button onClick={handleTrendCheck} disabled={!selectedSociety} className="px-8 py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 disabled:bg-gray-300 transition shadow-lg">Check Rates</button>
                 </div>
                 {trendResult && (<div className="mt-8 max-w-2xl mx-auto space-y-6"><div className="p-6 bg-slate-900 rounded-2xl text-center text-white shadow-xl"><p className="text-sm text-slate-400 mb-2">Current Base Rate in {selectedSociety}</p><p className="text-4xl font-extrabold">₹{trendResult.baseRate} <span className="text-lg font-medium text-slate-400">/ sq.ft.</span></p></div><div className="grid grid-cols-3 gap-4"><div className="p-5 bg-blue-50 rounded-2xl border border-blue-100 text-center shadow-sm"><p className="text-xs font-bold text-blue-800 mb-2">2 BHK</p><p className="text-xl font-extrabold text-gray-900">{formatCurrency(trendResult.twoBHK)}</p></div><div className="p-5 bg-green-50 rounded-2xl border border-green-100 text-center shadow-sm"><p className="text-xs font-bold text-green-800 mb-2">3 BHK</p><p className="text-xl font-extrabold text-gray-900">{formatCurrency(trendResult.threeBHK)}</p></div><div className="p-5 bg-purple-50 rounded-2xl border border-purple-100 text-center shadow-sm"><p className="text-xs font-bold text-purple-800 mb-2">4 BHK</p><p className="text-xl font-extrabold text-gray-900">{formatCurrency(trendResult.fourBHK)}</p></div></div><button onClick={() => setShowBuyerPopup(true)} className="w-full border-2 border-indigo-600 text-indigo-600 font-bold py-4 rounded-xl hover:bg-indigo-50 transition text-lg">Connect me with a Broker</button></div>)}
