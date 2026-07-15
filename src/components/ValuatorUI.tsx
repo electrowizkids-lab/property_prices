@@ -115,15 +115,16 @@ export default function ValuatorUI({ mode, setMode, formData, setFormData, handl
 {/* LOCALITY SELECTOR - NOW INCLUDES ALL 4 AREAS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-black/50 p-2 rounded-xl border border-white/10 max-w-2xl mx-auto">
   {['Indirapuram', 'Vaishali', 'Crossings Republik', 'Wave City'].map((loc) => (
-    <button 
-      key={loc} 
-      type="button" 
-      onClick={() => { 
-        setSelectedLocality(loc); 
-        setFormData({...formData, society: ''}); 
-      }} 
-      className={`py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedLocality === loc ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
-    >
+                  <button 
+                    key={loc} 
+                    type="button" 
+                    onClick={() => { 
+                      setSelectedLocality(loc); 
+                      setFormData({...formData, society: ''}); 
+                      setSelectedSociety(''); 
+                    }} 
+                    className={`py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedLocality === loc ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-sm' : 'text-slate-500 hover:text-slate-300 border border-transparent'}`}
+                  >
       {loc}
     </button>
   ))}
