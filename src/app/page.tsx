@@ -116,9 +116,9 @@ export default function Home() {
         else { carpetSize = Math.round(parsedSize * 0.70); }
       }
 
-      // --- DYNAMIC DATABASE STRATEGY ---
-      let baseRate: number;
-      let rateSource: string;
+// --- DYNAMIC DATABASE STRATEGY ---
+      let baseRate: number = 0;
+      let rateSource: string = "";
       const areaAverageName = `${selectedLocality} Area Average`;
 
       let useAverage = false;
