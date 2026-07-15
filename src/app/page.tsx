@@ -19,6 +19,9 @@ export default function Home() {
     yearBuilt: '2020', hasVastu: false, parkingType: 'one', condition: 'good'
   });
   
+  // Changed to string to support all 4 areas
+  const [selectedLocality, setSelectedLocality] = useState<string>('Indirapuram');
+  
   const [result, setResult] = useState<{
     min: number, max: number, rate: number, source: string, unit: string, 
     circleRateValue: number | null, premium: number | null, carpetSize: number | null,
@@ -34,15 +37,44 @@ export default function Home() {
   const [showBuyerPopup, setShowBuyerPopup] = useState(false);
   const [buyerPhone, setBuyerPhone] = useState('');
 
+  // Tab switching logic: Keeps Locality, clears property data
+  const handleModeChange = (newMode: 'seller' | 'buyer') => {
+    setMode(newMode);
+    setSelectedSociety('');
+    setTrendResult(null);
+    setFormData(prev => ({ 
+      ...prev, 
+      society: '', 
+      propertyType: 'flat',
+      size: '',
+      floor: '',
+    })); 
+  };
+
   useEffect(() => {
     const fetchSocieties = async () => {
-      // Removed .single() so it fetches ALL rows (Flats AND Plots)
-      // Removed .eq('property_type', 'flat') so the dropdown populates for both toggles
-      const { data } = await supabase.from('base_rates').select('locality_name');
-      if (data) setSocieties(data.map(item => item.locality_name).sort());
+      // Strict DB check: Plots look at sqyd column, Flats look at sqft column
+      const checkColumn = formData.propertyType === 'plot' ? 'base_rate_per_sqyd' : 'base_rate_per_sqft';
+      
+      const { data } = await supabase
+        .from('base_rates')
+        .select('locality_name')
+        .eq('property_type', formData.propertyType) 
+        .eq('locality', selectedLocality)           
+        .not(checkColumn, 'is', null)                
+        .not('locality_name', 'ilike', '%Average%'); 
+
+      if (data) {
+        const uniqueSocieties = [
+          `${selectedLocality} Area Average`,
+          ...[...new Set(data.map(item => item.locality_name))].sort()
+        ];
+        setSocieties(uniqueSocieties);
+      }
     };
+    
     fetchSocieties();
-  }, []);
+  }, [selectedLocality, formData.propertyType]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -51,6 +83,24 @@ export default function Home() {
 
   const handleSellerEstimate = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const parsedSize = parseFloat(formData.size);
+    if (isNaN(parsedSize) || parsedSize < 50 || parsedSize > 50000) {
+      return alert("Invalid size. Please enter a value between 50 and 50,000.");
+    }
+
+    if (!/^\d{10}$/.test(formData.phone)) {
+      return alert("Please enter a valid 10-digit mobile number.");
+    }
+
+    if (formData.propertyType === 'flat') {
+      const year = parseInt(formData.yearBuilt);
+      const currentYear = new Date().getFullYear();
+      if (isNaN(year) || year < 1970 || year > currentYear) {
+        return alert(`Invalid year. Properties built before 1970 or in the future are rejected.`);
+      }
+    }
+    
     setIsCalculating(true);
     setResult(null); 
 
@@ -58,27 +108,65 @@ export default function Home() {
       const { data: lead } = await supabase.from('leads').insert([{ phone_number: formData.phone, user_type: 'seller' }]).select().single();
       const isPlot = formData.propertyType === 'plot';
       
-      let inputSize = parseFloat(formData.size) || 0;
-      let superSize = inputSize;
+      let superSize = parsedSize;
       let carpetSize: number | null = null;
 
       if (!isPlot) {
-        if (formData.areaType === 'carpet') { superSize = inputSize / 0.70; carpetSize = inputSize; } 
-        else { carpetSize = Math.round(inputSize * 0.70); }
+        if (formData.areaType === 'carpet') { superSize = parsedSize / 0.70; carpetSize = parsedSize; } 
+        else { carpetSize = Math.round(parsedSize * 0.70); }
       }
 
-      let baseRate = isPlot ? 70000 : 8500; 
-      let rateSource = isPlot ? "Indirapuram Plot Average" : "Indirapuram Flat Average";
-      if (formData.society.trim() !== "") {
-        const { data: rateData } = await supabase.from('base_rates').select('base_rate_per_sqft').ilike('locality_name', formData.society.trim()).eq('property_type', isPlot ? 'plot' : 'flat').maybeSingle();
-        if (rateData) { baseRate = rateData.base_rate_per_sqft; rateSource = `Specific rate for ${formData.society}`; }
+      // --- DYNAMIC DATABASE STRATEGY ---
+      let baseRate: number;
+      let rateSource: string;
+      const areaAverageName = `${selectedLocality} Area Average`;
+
+      let useAverage = false;
+      let specificNotFound = false;
+
+      if (formData.society.trim() === `${selectedLocality} Area Average` || formData.society.trim() === "") {
+         useAverage = true;
+      } else {
+         const { data: rateData } = await supabase
+           .from('base_rates')
+           .select('base_rate_per_sqft, base_rate_per_sqyd') 
+           .eq('locality_name', formData.society.trim())
+           .eq('property_type', isPlot ? 'plot' : 'flat')
+           .maybeSingle();
+
+         if (rateData) {
+           baseRate = isPlot ? rateData.base_rate_per_sqyd! : rateData.base_rate_per_sqft!;
+           rateSource = `Specific rate for ${formData.society}`;
+         } else {
+           useAverage = true;
+           specificNotFound = true;
+         }
       }
+
+      if (useAverage) {
+         const { data: avgData } = await supabase
+           .from('base_rates')
+           .select('base_rate_per_sqft, base_rate_per_sqyd')
+           .eq('locality_name', areaAverageName)
+           .eq('property_type', isPlot ? 'plot' : 'flat')
+           .maybeSingle();
+
+         if (avgData) {
+           baseRate = isPlot ? avgData.base_rate_per_sqyd! : avgData.base_rate_per_sqft!;
+           rateSource = specificNotFound 
+             ? `${selectedLocality} Area Average (Specific data not found)` 
+             : `${selectedLocality} Area Average`;
+         } else {
+           setIsCalculating(false);
+           return alert(`Configuration error: Missing baseline data for ${selectedLocality} ${isPlot ? 'plots' : 'flats'}.`);
+         }
+      }
+      // --- END DYNAMIC STRATEGY ---
 
       let adjustedRate = baseRate;
       let percentageAdjustment = 0; 
       const adjustmentsLog: Adjustment[] = []; 
 
-      // Declare Renovation variables cleanly at the top
       let renoValueIncrease = null;
       let renoCost = null;
       let renoROI = null;
@@ -114,25 +202,32 @@ export default function Home() {
         if (formData.parkingType === 'two') { percentageAdjustment += 2; adjustmentsLog.push({ label: "Double Covered Parking", value: "+2%", isPositive: true }); } 
         else if (formData.parkingType === 'none') { percentageAdjustment -= 2; adjustmentsLog.push({ label: "No Parking", value: "-2%", isPositive: false }); }
         
+        const EXCELLENT_ADJ = 3;
+        const RENO_ADJ = -5;
+        const RENO_COST_PER_SQFT = 500; 
+
         if (formData.condition === 'excellent') { 
-          percentageAdjustment += 3; 
-          adjustmentsLog.push({ label: "Excellent Condition", value: "+3%", isPositive: true }); 
+          percentageAdjustment += EXCELLENT_ADJ; 
+          adjustmentsLog.push({ label: "Excellent Condition", value: `+${EXCELLENT_ADJ}%`, isPositive: true }); 
         } else if (formData.condition === 'needs_renovation') { 
-          percentageAdjustment -= 5; 
-          adjustmentsLog.push({ label: "Needs Renovation", value: "-5%", isPositive: false }); 
+          percentageAdjustment += RENO_ADJ; 
+          adjustmentsLog.push({ label: "Needs Renovation", value: `${RENO_ADJ}%`, isPositive: false }); 
           
-          const hypotheticalExcellentRate = baseRate * (1 + ((percentageAdjustment + 8) / 100));
+          const conditionDelta = EXCELLENT_ADJ - RENO_ADJ; 
+          const hypotheticalExcellentRate = baseRate * (1 + ((percentageAdjustment + conditionDelta) / 100));
           const currentEstimate = baseRate * (1 + (percentageAdjustment / 100)) * superSize;
           const excellentEstimate = hypotheticalExcellentRate * superSize;
           
-          renoCost = 350000; // Set cost here cleanly
+          const effectiveCarpetSize = carpetSize || Math.round(superSize * 0.70);
+          renoCost = Math.round(effectiveCarpetSize * RENO_COST_PER_SQFT);
+          
           renoValueIncrease = Math.round(excellentEstimate - currentEstimate);
           renoROI = Math.round(((renoValueIncrease - renoCost) / renoCost) * 100);
         }
       }
 
       adjustedRate = adjustedRate * (1 + (percentageAdjustment / 100));
-      const totalEstimate = adjustedRate * (isPlot ? inputSize : superSize);
+      const totalEstimate = adjustedRate * (isPlot ? parsedSize : superSize);
       const minPrice = Math.round(totalEstimate * 0.97);
       const maxPrice = Math.round(totalEstimate * 1.03);
 
@@ -140,31 +235,42 @@ export default function Home() {
       let premium = null;
       const societyKey = formData.society.trim().toLowerCase();
       
-      // Fetch from Database instead of hardcoded file
+      const SQM_TO_SQFT = 10.764; 
+      const SUPER_TO_BUILT_UP_FACTOR = 0.85; 
+      
       const { data: circleData } = await supabase
         .from('circle_rates')
-        .select('circle_rate_per_sq_yd')
+        .select('circle_rate_per_sq_yd, circle_rate_flat_per_sqm')
         .ilike('locality_name', societyKey)
         .maybeSingle();
 
       if (circleData) {
-        const circlePerSqYard = circleData.circle_rate_per_sq_yd;
-        if (isPlot) {
-          // Plots size is already in Sq. Yards
-          circleRateValue = Math.round(circlePerSqYard * inputSize);
-        } else {
-          // Flats size is in Sq. Ft. Convert Govt Sq. Yard to Sq. Ft.
-          const circlePerSqFt = circlePerSqYard / 9;
-          circleRateValue = Math.round(circlePerSqFt * superSize);
+        if (isPlot && circleData.circle_rate_per_sq_yd) {
+          circleRateValue = Math.round(circleData.circle_rate_per_sq_yd * parsedSize);
+        } else if (!isPlot && circleData.circle_rate_flat_per_sqm) {
+          const ratePerSqFt = circleData.circle_rate_flat_per_sqm / SQM_TO_SQFT;
+          const builtUpArea = superSize * SUPER_TO_BUILT_UP_FACTOR;
+          circleRateValue = Math.round(ratePerSqFt * builtUpArea);
         }
-        premium = Math.round(((totalEstimate - circleRateValue) / totalEstimate) * 100);
+        
+        if (circleRateValue) {
+          premium = Math.round(((totalEstimate - circleRateValue) / totalEstimate) * 100);
+        }
       }
 
       if (lead) {
-        await supabase.from('valuations').insert([{ lead_id: lead.id, property_type: formData.propertyType, society_name: formData.society, size_sqft: isPlot ? inputSize : superSize, floor: isPlot ? null : parseInt(formData.floor), facing: formData.facing, estimated_min_price: minPrice, estimated_max_price: maxPrice }]);
+        await supabase.from('valuations').insert([{ 
+          lead_id: lead.id, 
+          property_type: formData.propertyType, 
+          society_name: formData.society, 
+          size_sqft: isPlot ? parsedSize : superSize, 
+          floor: isPlot ? null : parseInt(formData.floor), 
+          facing: formData.facing, 
+          estimated_min_price: minPrice, 
+          estimated_max_price: maxPrice 
+        }]);
       }
 
-      // Pass the clean variables directly into setResult
       setResult({ 
         min: minPrice, max: maxPrice, rate: Math.round(adjustedRate), source: rateSource, 
         unit: isPlot ? 'Sq. Yard' : 'Sq. Ft. (Super)', circleRateValue, premium, carpetSize: isPlot ? null : carpetSize,
@@ -178,7 +284,10 @@ export default function Home() {
   const handleTrendCheck = async () => {
     if (!selectedSociety) return;
     const { data: rateData } = await supabase.from('base_rates').select('base_rate_per_sqft').eq('locality_name', selectedSociety).eq('property_type', 'flat').single();
-    if (rateData) { const rate = rateData.base_rate_per_sqft; setTrendResult({ baseRate: rate, twoBHK: Math.round(rate * 1100), threeBHK: Math.round(rate * 1600), fourBHK: Math.round(rate * 2200) }); }
+    if (rateData) { 
+      const rate = rateData.base_rate_per_sqft; 
+      setTrendResult({ baseRate: rate, twoBHK: Math.round(rate * 1100), threeBHK: Math.round(rate * 1600), fourBHK: Math.round(rate * 2200) }); 
+    }
   };
 
   const handleBuyerLeadSubmit = async (e: React.FormEvent) => {
@@ -194,7 +303,7 @@ export default function Home() {
   return (
     <ValuatorUI 
       mode={mode}
-      setMode={setMode}
+      setMode={handleModeChange}
       formData={formData}
       setFormData={setFormData}
       handleChange={handleChange}
@@ -212,6 +321,8 @@ export default function Home() {
       setBuyerPhone={setBuyerPhone}
       handleBuyerLeadSubmit={handleBuyerLeadSubmit}
       formatCurrency={formatCurrency}
+      selectedLocality={selectedLocality}
+      setSelectedLocality={setSelectedLocality}
     />
   );
 }
